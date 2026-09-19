@@ -135,21 +135,29 @@ class Agent:
             if result.success:
                 yield f"[dim]✓ Tool '{tool_name}' executed successfully.[/dim]\n\n"
                 tool_feedback = f"[Tool '{tool_name}' Result]:\n{result.output}"
+                grounding_instruction = (
+                    f"{tool_feedback}\n\n"
+                    "Please provide a final concise answer to the user based STRICTLY and ONLY on the tool result above. "
+                    "Do NOT assume, fabricate, or extrapolate unmentioned metrics (such as disk storage, battery level, or hardware temperatures)."
+                )
             else:
                 yield f"[dim]✗ Tool '{tool_name}' failed or was denied: {result.error}[/dim]\n\n"
                 tool_feedback = f"[Tool '{tool_name}' Execution Failed]:\n{result.error}"
+                grounding_instruction = (
+                    f"{tool_feedback}\n\n"
+                    "CRITICAL SECURITY & GROUNDING DIRECTIVE:\n"
+                    "The tool execution failed or was blocked/denied by security policy. "
+                    "Inform the user clearly and factually that the action was blocked or could not be completed. "
+                    "You MUST NOT offer to bypass security restrictions, override permissions, or ask the user if you should proceed anyway. "
+                    "Security blocks and permission denials are final."
+                )
 
             # Append tool execution feedback into messages with strict grounding constraint
             working_messages.append(ChatMessage(role="assistant", content=first_pass_reply))
-            grounding_instruction = (
-                f"{tool_feedback}\n\n"
-                "Please provide a final concise answer to the user based STRICTLY and ONLY on the tool result above. "
-                "Do NOT assume, fabricate, or extrapolate unmentioned metrics (such as disk storage, battery level, or hardware temperatures)."
-            )
             working_messages.append(ChatMessage(role="user", content=grounding_instruction))
 
-            # Stream final conversational response to user
-            for chunk in self.client.stream_chat(messages=working_messages, temperature=0.7):
+            # Stream final conversational response to user with strict grounding temperature
+            for chunk in self.client.stream_chat(messages=working_messages, temperature=0.2):
                 yield chunk
 
         else:

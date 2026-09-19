@@ -7,14 +7,15 @@ import webbrowser
 from urllib.parse import urlparse
 from typing import Dict, Any, Optional
 
+from app.config import settings
 from app.tools.base import BaseTool, ToolResult
 from app.security.permissions import PermissionLevel
 
 
 class GetSystemInfoTool(BaseTool):
-    """Retrieve basic non-sensitive system and hardware information."""
+    """Retrieve basic non-sensitive system, hardware, and AI model information."""
     name = "get_system_info"
-    description = "Get basic OS, CPU architecture, Python version, and system platform information."
+    description = "Get basic OS, CPU architecture, Python version, system platform, and active AI model runtime info."
     permission_level = PermissionLevel.SAFE
     parameters = {}
 
@@ -28,6 +29,9 @@ class GetSystemInfoTool(BaseTool):
                 "processor": platform.processor(),
                 "cpu_count": os.cpu_count(),
                 "python_version": sys.version.split()[0],
+                "active_llm_model": settings.default_model,
+                "stt_engine": f"faster-whisper ({settings.stt_model}, {settings.stt_compute_type})",
+                "tts_engine": f"Windows SAPI5 (enabled={settings.tts_enabled})",
             }
             output_lines = [f"{k}: {v}" for k, v in info.items()]
             return ToolResult.ok("\n".join(output_lines), metadata=info)
@@ -38,12 +42,16 @@ class GetSystemInfoTool(BaseTool):
 class OpenUrlTool(BaseTool):
     """Safely open web URLs in default browser without downloading or executing content."""
     name = "open_url"
-    description = "Open a valid web URL (http/https) in the user's default browser."
+    description = (
+        "Open a web URL (http/https) in the default browser. Use this tool whenever the user wants to "
+        "search YouTube, search Google, visit websites, view online videos, or open web services "
+        "(e.g., construct 'https://www.youtube.com/results?search_query=...' or 'https://www.google.com/search?q=...')."
+    )
     permission_level = PermissionLevel.SAFE
     parameters = {
         "url": {
             "type": "string",
-            "description": "The full HTTP or HTTPS URL to open (e.g. https://www.google.com)"
+            "description": "The full HTTP or HTTPS URL to open in browser (e.g. 'https://www.youtube.com/results?search_query=mrbeast' or 'https://www.google.com')"
         }
     }
 
@@ -72,12 +80,15 @@ class OpenUrlTool(BaseTool):
 class OpenApplicationTool(BaseTool):
     """Open safe allowlisted desktop applications with user confirmation."""
     name = "open_application"
-    description = "Launch a pre-approved desktop application (notepad, calculator, paint, explorer, vscode)."
+    description = (
+        "Launch an approved local desktop executable (notepad, calculator, paint, explorer, vscode). "
+        "Do NOT use this tool for websites, web searches, or online media (use open_url instead)."
+    )
     permission_level = PermissionLevel.CONFIRMATION_REQUIRED
     parameters = {
         "app_name": {
             "type": "string",
-            "description": "Name of the allowlisted application: 'notepad', 'calc', 'paint', 'explorer', 'vscode'",
+            "description": "Name of the allowlisted local desktop application: 'notepad', 'calc', 'paint', 'explorer', 'vscode'",
             "enum": ["notepad", "calc", "calculator", "paint", "mspaint", "explorer", "vscode", "code"]
         }
     }
